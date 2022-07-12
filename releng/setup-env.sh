@@ -6,16 +6,31 @@ build_os=$($releng_path/detect-os.sh)
 build_arch=$($releng_path/detect-arch.sh)
 build_os_arch=${build_os}-${build_arch}
 
+echo "[ releng/setup-env.mk ] "
+
+echo "build_os      = [ ${build_os} ]"
+echo "build_arch    = [ ${build_arch}]"
+echo "build_os_arch = [ ${build_os_arch}]"
+echo "FRIDA_HOST    = [ ${FRIDA_HOST}]"
+
 if [ -n "$FRIDA_HOST" ]; then
   host_os=$(echo -n $FRIDA_HOST | cut -f1 -d"-")
 else
   host_os=$build_os
 fi
+
+echo "host_os       = [ ${host_os} ]"
+
 if [ -n "$FRIDA_HOST" ]; then
   host_arch=$(echo -n $FRIDA_HOST | cut -f2 -d"-")
 else
   host_arch=$build_arch
 fi
+
+echo "host_arch     = [ ${host_arch} ]"
+
+echo "FRIDA_LIBC    = [ ${FRIDA_LIBC} ]"
+
 if [ -n "$FRIDA_LIBC" ]; then
   frida_libc=$FRIDA_LIBC
 else
@@ -34,6 +49,9 @@ else
       ;;
   esac
 fi
+
+echo "frida_libc    = [ ${frida_libc} ]"
+
 case $host_arch in
   x86)
     host_clang_arch=i386
@@ -45,7 +63,11 @@ case $host_arch in
     host_clang_arch=$host_arch
     ;;
 esac
+
 host_os_arch=${host_os}-${host_arch}
+
+echo "host_os_arch  = [ ${host_os_arch} ]"
+echo "host_clang_arch  = [ ${host_clang_arch} ]"
 
 case $host_os in
   macos|ios)
@@ -55,6 +77,9 @@ case $host_os in
     meson_host_system=$host_os
     ;;
 esac
+
+echo "meson_host_system = [ ${meson_host_system} ]"
+
 case $host_arch in
   i?86)
     meson_host_cpu_family=x86
@@ -119,6 +144,11 @@ case $host_arch in
 esac
 meson_b_lundef=true
 
+echo "meson_host_cpu_family = [ ${meson_host_cpu_family} ]"
+echo "meson_host_cpu = [ ${meson_host_cpu} ]"
+echo "meson_host_endian = [ ${meson_host_endian} ]"
+echo "meson_b_lundef = [ ${meson_b_lundef} ]"
+
 case $FRIDA_ASAN in
   yes|no)
     enable_asan=$FRIDA_ASAN
@@ -127,6 +157,8 @@ case $FRIDA_ASAN in
     enable_asan=no
     ;;
 esac
+
+echo "enable_asan = [ ${enable_asan} ]"
 
 if which curl &>/dev/null; then
   download_command="curl --progress-bar"
@@ -188,6 +220,9 @@ else
   frida_env_name_prefix=
 fi
 
+echo "FRIDA_ENV_NAME = [ ${FRIDA_ENV_NAME} ]"
+echo "frida_env_name_prefix = [ ${frida_env_name_prefix} ]"
+
 pushd $releng_path/../ > /dev/null
 FRIDA_ROOT=`pwd`
 popd > /dev/null
@@ -198,16 +233,31 @@ FRIDA_PREFIX_LIB="$FRIDA_PREFIX/lib"
 FRIDA_TOOLROOT="$FRIDA_BUILD/${frida_env_name_prefix}toolchain-${build_os_arch}"
 FRIDA_SDKROOT="$FRIDA_BUILD/${frida_env_name_prefix}sdk-${host_os_arch}"
 
+echo "FRIDA_ROOT = [ ${FRIDA_ROOT} ]"
+echo "FRIDA_BUILD = [ ${FRIDA_BUILD} ]"
+echo "FRIDA_RELENG = [ ${FRIDA_RELENG} ]"
+echo "FRIDA_PREFIX = [ ${FRIDA_PREFIX} ]"
+echo "FRIDA_PREFIX_LIB = [ ${FRIDA_PREFIX_LIB} ]"
+echo "FRIDA_TOOLROOT = [ ${FRIDA_TOOLROOT} ]"
+echo "FRIDA_SDKROOT = [ ${FRIDA_SDKROOT} ]"
+
 if [ -n "$FRIDA_TOOLCHAIN_VERSION" ]; then
   toolchain_version=$FRIDA_TOOLCHAIN_VERSION
 else
   toolchain_version=$(grep "frida_deps_version =" "$FRIDA_RELENG/deps.mk" | awk '{ print $NF }')
 fi
+
+echo "FRIDA_TOOLCHAIN_VERSION = [ ${FRIDA_TOOLCHAIN_VERSION} ]"
+echo "toolchain_version = [ ${toolchain_version} ]"
+
 if [ -n "$FRIDA_SDK_VERSION" ]; then
   sdk_version=$FRIDA_SDK_VERSION
 else
   sdk_version=$(grep "frida_deps_version =" "$FRIDA_RELENG/deps.mk" | awk '{ print $NF }')
 fi
+
+echo "sdk_version = [ ${sdk_version} ]"
+
 if [ "$enable_asan" == "yes" ]; then
   sdk_version="$sdk_version-asan"
 fi
@@ -217,6 +267,9 @@ detect_vala_api_version ()
   vala_api_version=$(ls -1 "$FRIDA_TOOLROOT/share" | grep "vala-" | cut -f2 -d"-")
 }
 
+echo "vala_api_version = [ ${vala_api_version} ]"
+echo "toolchain_version = [ ${toolchain_version} ]"
+
 if ! grep -Eq "^$toolchain_version\$" "$FRIDA_TOOLROOT/VERSION.txt" 2>/dev/null; then
   rm -rf "$FRIDA_TOOLROOT"
   mkdir -p "$FRIDA_TOOLROOT"
@@ -224,6 +277,7 @@ if ! grep -Eq "^$toolchain_version\$" "$FRIDA_TOOLROOT/VERSION.txt" 2>/dev/null;
   filename=toolchain-$build_os-$build_arch.tar.bz2
 
   local_toolchain=$FRIDA_BUILD/_$filename
+  echo "local_toolchain=[$local_toolchain]"
   if [ -f $local_toolchain ]; then
     echo -e "Deploying local toolchain \\033[1m$(basename $local_toolchain)\\033[0m..."
     tar -C "$FRIDA_TOOLROOT" -xjf $local_toolchain || exit 1
@@ -266,6 +320,8 @@ else
   detect_vala_api_version
 fi
 
+echo "FRIDA_ENV_SDK = [ ${FRIDA_ENV_SDK} ]"
+
 if [ "$FRIDA_ENV_SDK" != 'none' ] && ! grep -Eq "^$sdk_version\$" "$FRIDA_SDKROOT/VERSION.txt" 2>/dev/null; then
   rm -rf "$FRIDA_SDKROOT"
   mkdir -p "$FRIDA_SDKROOT"
@@ -302,11 +358,16 @@ if [ "$FRIDA_ENV_SDK" != 'none' ] && ! grep -Eq "^$sdk_version\$" "$FRIDA_SDKROO
   done
 fi
 
+echo "FRIDA_ENV_SDK = [ ${FRIDA_ENV_SDK} ]"
+
 if [ -f "$FRIDA_SDKROOT/lib/c++/libc++.a" ]; then
   have_static_libcxx=yes
 else
   have_static_libcxx=no
 fi
+
+echo "FRIDA_SDKROOT = [ ${FRIDA_SDKROOT}/lib/c++/libc++.a ]"
+echo "have_static_libcxx = [ ${have_static_libcxx} ]"
 
 LIBTOOL=""
 STRIP_FLAGS=""
@@ -338,6 +399,7 @@ mkdir -p "$FRIDA_BUILD"
 if [ "$host_arch" == "arm64eoabi" ]; then
   export DEVELOPER_DIR="$XCODE11/Contents/Developer"
 fi
+
 
 xcrun="xcrun"
 if [ "$build_os_arch" == "macos-arm64" ]; then
@@ -380,6 +442,8 @@ case $host_os in
       arm64)
         host_arch_flags="-march=armv8-a"
         host_toolprefix="aarch64-linux-$frida_libc-"
+        echo "host_arch_flags =[$host_arch_flags]"
+        echo "host_toolprefix =[$host_toolprefix]"
         ;;
       mips)
         host_arch_flags="-march=mips1 -mfp32"
